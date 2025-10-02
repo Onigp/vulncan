@@ -1,4 +1,4 @@
-# 🛡️ ScanWebSec: Escáner Básico de Seguridad Web (HTTP/Archivos)
+# 🛡️ Vulnescan: Escáner Básico de Seguridad Web (HTTP/Archivos)
 
 ScanWebSec es una herramienta sencilla y eficiente diseñada para auditar la configuración de seguridad básica de una aplicación web. Se especializa en la detección de **cabeceras HTTP faltantes** y la **exposición de archivos sensibles**, proporcionando un *dashboard* interactivo a través de Streamlit.
 
