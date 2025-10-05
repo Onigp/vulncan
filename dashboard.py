@@ -13,6 +13,35 @@ from scanner import escanear_web
 from csv_generador import generar_csv_reporte
 from diccionario import get_detalles_vulnerabilidad
 
+# funcion para generar un único dataframe que contenga todos los demas dataframe
+def cargar_historial_reportes(directorio="reportes"):
+    """Carga todos los reportes CSV en un solo DataFrame con una columna de fecha de escaneo."""
+    search_path = os.path.join(directorio, "reporte_seguridad_*.csv")
+    archivos = glob.glob(search_path)
+    
+    if not archivos:
+        return pd.DataFrame()
+    
+    dfs = []    # lista de dataframes
+    for archivo in archivos:
+        try:
+            df = pd.read_csv(archivo)
+            
+            # Extraer fecha del nombre del archivo dividiendo el nombre en pedazos dentro de una lista
+            timestamp = os.path.basename(archivo).split("reporte_seguridad_")[-1].split(".")[0]
+            fecha = datetime.strptime(timestamp, "%Y%m%d_%H%M%S")   # combierte la fecha en un tipo datetime
+            
+            df["FECHA_REPORTE"] = fecha
+            dfs.append(df)
+        except Exception as e:
+            print(f"[AVISO] No se pudo cargar {archivo}: {e}")
+    
+    # unir los dataframes en uno solo
+    if dfs:
+        return pd.concat(dfs, ignore_index=True).sort_values(by="FECHA_REPORTE")
+    else:
+        return pd.DataFrame()
+
 # --- Configuración de la Aplicación Streamlit ---
 st.set_page_config(
     page_title="Dashboard de Seguridad Web",
