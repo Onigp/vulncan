@@ -1,6 +1,8 @@
 # dashboard.py
 
 import streamlit as st
+import altair as alt
+
 import pandas as pd
 import os
 import glob
@@ -260,3 +262,60 @@ if ruta_ultimo_csv:
 
 else:
     st.info("No se han encontrado reportes de escaneo. Inicie un nuevo escaneo en la barra lateral para generar el primer reporte.")
+
+
+# ================================
+# Sección: Historial General
+# ================================
+
+st.markdown("## 📚 Historial de Escaneos")
+
+df_historial = cargar_historial_reportes()
+
+if not df_historial.empty:
+
+    st.subheader("📈 Distribución de Severidades")
+
+    conteo_df = (
+        df_historial["SEVERIDAD"]
+        .value_counts()
+        .reset_index()
+        .rename(columns={"SEVERIDAD": "Severidad", "count": "Cantidad"})
+    )
+    
+    severidad_orden = ["Alta", "Media", "Baja", "Informativa"]
+    
+    chart = (
+        alt.Chart(conteo_df)
+        .mark_bar(cornerRadiusTopLeft=10, cornerRadiusTopRight=10)
+        .encode(
+            x=alt.X(
+                "Severidad",
+                sort=severidad_orden,
+                title=None
+            ),
+            y=alt.Y("Cantidad", title=None),
+            color=alt.Color(
+                "Severidad",
+                scale=alt.Scale(
+                    domain=severidad_orden,
+                    range=["#E60000", "#FFA500", "#FFCC00", "#3399FF"]
+                ),
+            ),
+            tooltip=["Severidad", "Cantidad"]
+        )
+        .properties(height=400)
+    )
+
+    st.altair_chart(chart, use_container_width=True)
+
+    # Botón para exportar todo el dataset
+    csv_export = df_historial.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="⬇️ Descargar historial (CSV)",
+        data=csv_export,
+        file_name="historial_vulnerabilidades.csv",
+        mime="text/csv"
+    )
+else:
+    st.info("No se han encontrado múltiples reportes para construir un historial.")
