@@ -1,6 +1,8 @@
 # dashboard.py
 
 import streamlit as st
+import altair as alt
+
 import pandas as pd
 import os
 import glob
@@ -12,6 +14,35 @@ import numpy as np
 from scanner import escanear_web
 from csv_generador import generar_csv_reporte
 from diccionario import get_detalles_vulnerabilidad
+
+# funcion para generar un único dataframe que contenga todos los demas dataframe
+def cargar_historial_reportes(directorio="reportes"):
+    """Carga todos los reportes CSV en un solo DataFrame con una columna de fecha de escaneo."""
+    search_path = os.path.join(directorio, "reporte_seguridad_*.csv")
+    archivos = glob.glob(search_path)
+    
+    if not archivos:
+        return pd.DataFrame()
+    
+    dfs = []    # lista de dataframes
+    for archivo in archivos:
+        try:
+            df = pd.read_csv(archivo)
+            
+            # Extraer fecha del nombre del archivo dividiendo el nombre en pedazos dentro de una lista
+            timestamp = os.path.basename(archivo).split("reporte_seguridad_")[-1].split(".")[0]
+            fecha = datetime.strptime(timestamp, "%Y%m%d_%H%M%S")   # combierte la fecha en un tipo datetime
+            
+            df["FECHA_REPORTE"] = fecha
+            dfs.append(df)
+        except Exception as e:
+            print(f"[AVISO] No se pudo cargar {archivo}: {e}")
+    
+    # unir los dataframes en uno solo
+    if dfs:
+        return pd.concat(dfs, ignore_index=True).sort_values(by="FECHA_REPORTE")
+    else:
+        return pd.DataFrame()
 
 # --- Configuración de la Aplicación Streamlit ---
 st.set_page_config(
@@ -231,3 +262,60 @@ if ruta_ultimo_csv:
 
 else:
     st.info("No se han encontrado reportes de escaneo. Inicie un nuevo escaneo en la barra lateral para generar el primer reporte.")
+
+
+# ================================
+# Sección: Historial General
+# ================================
+
+st.markdown("## 📚 Historial de Escaneos")
+
+df_historial = cargar_historial_reportes()
+
+if not df_historial.empty:
+
+    st.subheader("📈 Distribución de Severidades")
+
+    conteo_df = (
+        df_historial["SEVERIDAD"]
+        .value_counts()
+        .reset_index()
+        .rename(columns={"SEVERIDAD": "Severidad", "count": "Cantidad"})
+    )
+    
+    severidad_orden = ["Alta", "Media", "Baja", "Informativa"]
+    
+    chart = (
+        alt.Chart(conteo_df)
+        .mark_bar(cornerRadiusTopLeft=10, cornerRadiusTopRight=10)
+        .encode(
+            x=alt.X(
+                "Severidad",
+                sort=severidad_orden,
+                title=None
+            ),
+            y=alt.Y("Cantidad", title=None),
+            color=alt.Color(
+                "Severidad",
+                scale=alt.Scale(
+                    domain=severidad_orden,
+                    range=["#E60000", "#FFA500", "#FFCC00", "#3399FF"]
+                ),
+            ),
+            tooltip=["Severidad", "Cantidad"]
+        )
+        .properties(height=400)
+    )
+
+    st.altair_chart(chart, use_container_width=True)
+
+    # Botón para exportar todo el dataset
+    csv_export = df_historial.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="⬇️ Descargar historial (CSV)",
+        data=csv_export,
+        file_name="historial_vulnerabilidades.csv",
+        mime="text/csv"
+    )
+else:
+    st.info("No se han encontrado múltiples reportes para construir un historial.")
